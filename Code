@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Parking Control Dashboard - Class 8 IoT Project</title>
+    
+    <!-- Google Fonts & FontAwesome Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        theme: {
+                            bgOuter: '#FFD93D',
+                            bgInner: '#FFF6D6',
+                            cardYellow: '#FFF0B3',
+                            orangeMain: '#FF8A00',
+                            orangeGradientEnd: '#FF5E00',
+                            cyanMain: '#00C2FF',
+                            purpleMain: '#9B51E0',
+                            pinkMain: '#FF5C8D',
+                            greenMain: '#27AE60',
+                            blueCard: '#2F80ED',
+                            darkText: '#332211'
+                        }
+                    },
+                    fontFamily: {
+                        fredoka: ['Fredoka', 'sans-serif'],
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #FFDE59 0%, #FF914D 100%);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: #3B2A1A;
+            min-height: 100vh;
+        }
+
+        .font-playful {
+            font-family: 'Fredoka', cursive, sans-serif;
+        }
+
+        .main-board {
+            background-color: #FFF8E1;
+            border-radius: 36px;
+            box-shadow: 0 24px 48px rgba(184, 98, 0, 0.25), inset 0 2px 4px rgba(255, 255, 255, 0.8);
+            border: 6px solid #FFE89C;
+        }
+
+        .rounded-card {
+            border-radius: 24px;
+            box-shadow: 0 8px 16px rgba(165, 110, 0, 0.08);
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .rounded-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 20px rgba(165, 110, 0, 0.15);
+        }
+
+        .btn-pill {
+            border-radius: 999px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .btn-pill:active {
+            transform: scale(0.95);
+        }
+
+        .vertical-dock-btn {
+            border-radius: 20px;
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.12);
+        }
+
+        .vertical-dock-btn:hover {
+            transform: scale(1.05) translateX(-2px);
+        }
+
+        .vertical-dock-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Circular Progress Styling */
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.5s ease-in-out;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        .pulse-animation {
+            animation: pulse-ring 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.08); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+
+        /* Bottom Player Bar Gradient */
+        .player-bar {
+            background: linear-gradient(180deg, #FFFFFF 0%, #FFF4CC 100%);
+            border-radius: 999px;
+            box-shadow: 0 10px 24px rgba(139, 87, 0, 0.15);
+            border: 3px solid #FFE17D;
+        }
+
+        /* Live Digital Clock Badge */
+        .live-clock-badge {
+            background: linear-gradient(135deg, #FFF3C4 0%, #FFE58F 100%);
+            border: 1.5px solid #FFD04D;
+            box-shadow: inset 0 1px 3px rgba(255, 255, 255, 0.8), 0 2px 6px rgba(184, 98, 0, 0.12);
+        }
+    </style>
+
+    <!-- Firebase Web SDK v8 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+
+<body class="p-2 sm:p-4 md:p-6 flex items-center justify-center min-h-screen">
+
+    <!-- MAIN BOARD CONTAINER -->
+    <div class="main-board w-full max-w-[1380px] p-4 sm:p-6 md:p-8 relative overflow-hidden flex flex-col justify-between min-h-[860px]">
+
+        <!-- ================= 1. TOP BAR ================= -->
+        <header class="flex flex-col lg:flex-row items-center justify-between gap-4 mb-6">
+            
+            <!-- Left Header: App Logo & Student Pill Badge & REALTIME DIGITAL CLOCK -->
+            <div class="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-white text-2xl shadow-md border-2 border-white flex-shrink-0">
+                        <i class="fa-solid fa-square-parking"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-playful text-2xl sm:text-3xl font-extrabold text-amber-950 tracking-wide leading-none">
+                            SMART PARKING HUB
+                        </h1>
+                        <p class="text-xs font-bold text-amber-700/80 mt-1">Kelas 8 Project - ESP32 IoT Dashboard</p>
+                        
+                        <!-- JAM AKTIF REALTIME (PLACED DIRECTLY BELOW TITLE) -->
+                        <div class="live-clock-badge mt-1.5 inline-flex items-center gap-2 px-3 py-1 rounded-xl text-amber-950">
+                            <span class="relative flex h-2 w-2">
+                              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                            <i class="fa-regular fa-clock text-amber-700 text-xs"></i>
+                            <span id="liveTimeText" class="font-mono font-bold text-xs sm:text-sm tracking-wide text-amber-950">
+                                00:00:00 WIB
+                            </span>
+                            <span class="text-[10px] font-bold text-amber-800/70 border-l border-amber-400/80 pl-2" id="liveDateText">
+                                Senin, 28 Sep
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status Counter Badge -->
+                <div class="bg-amber-100/90 border-2 border-amber-300/80 px-4 py-2 rounded-full flex items-center gap-3 shadow-inner self-start sm:self-center">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-lg">🥕</span>
+                        <span id="topSlotText" class="font-playful font-extrabold text-amber-900 text-base">3 / 4 Slot Tersedia</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Quick Action Icons (Top Right Tools) -->
+            <div class="flex items-center gap-2.5 sm:gap-3 self-end lg:self-center">
+                
+                <!-- Bluetooth Connect Pill -->
+                <button id="topBtBtn" onclick="connectBluetooth()" title="Connect Bluetooth ESP32" class="btn-pill bg-white hover:bg-amber-50 border-2 border-amber-200 p-2.5 px-4 flex items-center gap-2 text-xs font-bold text-amber-900 shadow-sm">
+                    <div class="w-7 h-7 rounded-full bg-cyan-400 text-white flex items-center justify-center text-xs">
+                        <i class="fa-sharp fa-solid fa-bluetooth"></i>
+                    </div>
+                    <span id="topBtText" class="hidden sm:inline">Connect BT</span>
+                </button>
+
+                <!-- Firebase Quick Status Button -->
+                <button onclick="toggleFirebaseModal()" title="Firebase Database Config" class="btn-pill bg-white hover:bg-amber-50 border-2 border-amber-200 p-2.5 px-4 flex items-center gap-2 text-xs font-bold text-amber-900 shadow-sm">
+                    <div id="fbIconBadge" class="w-7 h-7 rounded-full bg-amber-400 text-white flex items-center justify-center text-xs">
+                        <i class="fa-solid fa-fire"></i>
+                    </div>
+                    <span id="fbTextStatus" class="hidden sm:inline">Firebase</span>
+                </button>
+
+                <!-- Beep Sound Alert Toggle -->
+                <button onclick="toggleAudioBeep()" id="audioToggleBtn" title="Toggle Sound Alerts" class="btn-pill bg-white hover:bg-amber-50 border-2 border-amber-200 w-11 h-11 flex items-center justify-center text-amber-800 text-sm shadow-sm">
+                    <i id="audioIcon" class="fa-solid fa-volume-high text-amber-600"></i>
+                </button>
+
+                <!-- Reset System Toggle -->
+                <button onclick="resetSystemData()" title="Reset All Data" class="btn-pill bg-white hover:bg-rose-50 border-2 border-rose-200 w-11 h-11 flex items-center justify-center text-rose-600 text-sm shadow-sm">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- ================= MAIN CONTENT GRID ================= -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-6">
+
+            <!-- ================= 2. LEFT COLUMN (Task List Container) ================= -->
+            <div class="lg:col-span-4 bg-amber-100/70 border-3 border-amber-200/80 rounded-3xl p-4 sm:p-5 flex flex-col justify-between space-y-4">
+                
+                <div>
+                    <!-- Section Header -->
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="font-playful text-xl font-bold text-amber-950 flex items-center gap-2">
+                            <span class="w-2.5 h-6 bg-amber-500 rounded-full inline-block"></span>
+                            Kontrol & Sensor
+                        </h2>
+                        <span class="text-[11px] font-extrabold bg-amber-200 text-amber-900 px-3 py-1 rounded-full">
+                            ESP32 Live
+                        </span>
+                    </div>
+
+                    <!-- Task List Item 1: Palang Masuk (Servo 1) -->
+                    <div class="rounded-card bg-white p-4 mb-3 border-2 border-amber-200/70 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center text-lg font-bold">
+                                <i class="fa-solid fa-torii-gate"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm">Palang Masuk</h3>
+                                <p class="text-[11px] text-slate-500 font-semibold">Servo 1 (Gate Entry)</p>
+                            </div>
+                        </div>
+
+                        <button id="gate1Btn" onclick="toggleGate('gate1')" class="btn-pill px-4 py-2 bg-emerald-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md hover:bg-emerald-600">
+                            <span>BUKA</span>
+                            <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                        </button>
+                    </div>
+
+                    <!-- Task List Item 2: Palang Keluar (Servo 2) -->
+                    <div class="rounded-card bg-white p-4 mb-3 border-2 border-amber-200/70 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center text-lg font-bold">
+                                <i class="fa-solid fa-right-from-bracket"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm">Palang Keluar</h3>
+                                <p class="text-[11px] text-slate-500 font-semibold">Servo 2 (Gate Exit)</p>
+                            </div>
+                        </div>
+
+                        <button id="gate2Btn" onclick="toggleGate('gate2')" class="btn-pill px-4 py-2 bg-emerald-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md hover:bg-emerald-600">
+                            <span>BUKA</span>
+                            <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                        </button>
+                    </div>
+
+                    <!-- Task List Item 3: IR Sensor Masuk -->
+                    <div class="rounded-card bg-white p-4 mb-3 border-2 border-amber-200/70 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-cyan-100 text-cyan-600 flex items-center justify-center text-lg font-bold">
+                                <i class="fa-solid fa-rss"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm">Sensor IR Masuk</h3>
+                                <p class="text-[11px] text-slate-500 font-semibold">Deteksi Mobil Datang</p>
+                            </div>
+                        </div>
+
+                        <span id="ir1Badge" onclick="simulateIRTrigger('ir1')" title="Klik untuk simulasi IR 1" class="cursor-pointer bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-extrabold px-3 py-1.5 rounded-xl">
+                            Clear
+                        </span>
+                    </div>
+
+                    <!-- Task List Item 4: IR Sensor Keluar -->
+                    <div class="rounded-card bg-white p-4 border-2 border-amber-200/70 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center text-lg font-bold">
+                                <i class="fa-solid fa-sensor-triangle-exclamation"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm">Sensor IR Keluar</h3>
+                                <p class="text-[11px] text-slate-500 font-semibold">Deteksi Mobil Pergi</p>
+                            </div>
+                        </div>
+
+                        <span id="ir2Badge" onclick="simulateIRTrigger('ir2')" title="Klik untuk simulasi IR 2" class="cursor-pointer bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-extrabold px-3 py-1.5 rounded-xl">
+                            Clear
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Simulation Info Note -->
+                <div class="bg-amber-200/60 p-3 rounded-2xl border border-amber-300 text-center">
+                    <p class="text-[11px] text-amber-900 font-bold">
+                        💡 Tips Presentasi: Klik badge <span class="bg-white px-1.5 py-0.5 rounded text-amber-900">Clear</span> di atas untuk simulasi sensor IR tanpa alat!
+                    </p>
+                </div>
+
+            </div>
+
+            <!-- ================= 3. CENTER MAIN CARDS ================= -->
+            <div class="lg:col-span-6 space-y-5">
+                
+                <!-- UPPER MAIN FEATURE BANNER: Parking Status Overview -->
+                <div class="rounded-card bg-gradient-to-r from-amber-400 via-orange-400 to-orange-500 p-6 text-white relative overflow-hidden shadow-lg border-2 border-amber-300">
+                    
+                    <!-- Decorative Background Graphic -->
+                    <div class="absolute -right-6 -bottom-8 opacity-25 text-9xl text-white pointer-events-none">
+                        <i class="fa-solid fa-car-side"></i>
+                    </div>
+
+                    <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                        
+                        <div class="space-y-2 text-center md:text-left">
+                            <span class="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide border border-white/30 inline-block">
+                                Level 1 Parkir Utama
+                            </span>
+                            <h2 class="font-playful text-3xl font-extrabold text-white leading-tight">
+                                Status Parkir Real-time
+                            </h2>
+                            <p class="text-xs text-amber-100 font-medium max-w-xs">
+                                Monitoring otomatis ketersediaan tempat parkir mobil via ESP32 & Firebase Database.
+                            </p>
+
+                            <div class="pt-2">
+                                <button onclick="openAllGates()" class="btn-pill bg-white text-orange-600 hover:bg-amber-50 font-black px-6 py-2.5 text-xs flex items-center gap-2 shadow-md mx-auto md:mx-0">
+                                    <span>BUKA SEMUA PALANG</span>
+                                    <i class="fa-solid fa-circle-play"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Circular Gauge Meter -->
+                        <div class="relative w-32 h-32 flex-shrink-0 flex items-center justify-center bg-white/10 backdrop-blur-md rounded-3xl p-2 border border-white/20">
+                            <svg class="w-full h-full" viewBox="0 0 100 100">
+                                <circle class="text-white/20" stroke-width="10" stroke="currentColor" fill="transparent" r="38" cx="50" cy="50" />
+                                <circle id="gaugeCircle" class="text-white progress-ring-circle" stroke-width="10" stroke-dasharray="238.76" stroke-dashoffset="179.07" stroke-linecap="round" stroke="currentColor" fill="transparent" r="38" cx="50" cy="50" />
+                            </svg>
+                            <div class="absolute text-center">
+                                <span id="gaugePercent" class="font-playful text-2xl font-black text-white block">25%</span>
+                                <span class="text-[10px] font-bold text-amber-100 uppercase">Terisi</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- LOWER MAIN BANNER: Interactive Parking Slots Grid -->
+                <div class="rounded-card bg-gradient-to-r from-sky-400 to-blue-500 p-5 text-white relative overflow-hidden shadow-lg border-2 border-sky-300">
+                    
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="font-playful text-xl font-bold text-white">Denah Slot Parkir</h3>
+                            <p class="text-xs text-sky-100 font-medium">Klik slot untuk mengubah status mobil secara manual</p>
+                        </div>
+                        <span class="bg-white/20 text-white font-extrabold text-xs px-3 py-1 rounded-full border border-white/30">
+                            4 Total Slot
+                        </span>
+                    </div>
+
+                    <!-- 4 Parking Slots Grid -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        
+                        <!-- Slot 1 -->
+                        <div id="slotCard-1" onclick="toggleSlotManual(1)" class="cursor-pointer bg-white rounded-2xl p-3 text-slate-800 text-center transition hover:scale-105 border-2 border-emerald-400 shadow-md">
+                            <span class="text-[10px] font-black text-slate-400 block">SLOT A1</span>
+                            <div id="slotIcon-1" class="text-emerald-500 text-2xl my-1">
+                                <i class="fa-solid fa-square-check"></i>
+                            </div>
+                            <span id="slotStatus-1" class="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full block">
+                                KOSONG
+                            </span>
+                        </div>
+
+                        <!-- Slot 2 -->
+                        <div id="slotCard-2" onclick="toggleSlotManual(2)" class="cursor-pointer bg-white rounded-2xl p-3 text-slate-800 text-center transition hover:scale-105 border-2 border-rose-400 shadow-md">
+                            <span class="text-[10px] font-black text-slate-400 block">SLOT A2</span>
+                            <div id="slotIcon-2" class="text-rose-500 text-2xl my-1">
+                                <i class="fa-solid fa-car-side"></i>
+                            </div>
+                            <span id="slotStatus-2" class="text-[10px] font-extrabold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full block">
+                                TERISI
+                            </span>
+                        </div>
+
+                        <!-- Slot 3 -->
+                        <div id="slotCard-3" onclick="toggleSlotManual(3)" class="cursor-pointer bg-white rounded-2xl p-3 text-slate-800 text-center transition hover:scale-105 border-2 border-emerald-400 shadow-md">
+                            <span class="text-[10px] font-black text-slate-400 block">SLOT A3</span>
+                            <div id="slotIcon-3" class="text-emerald-500 text-2xl my-1">
+                                <i class="fa-solid fa-square-check"></i>
+                            </div>
+                            <span id="slotStatus-3" class="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full block">
+                                KOSONG
+                            </span>
+                        </div>
+
+                        <!-- Slot 4 -->
+                        <div id="slotCard-4" onclick="toggleSlotManual(4)" class="cursor-pointer bg-white rounded-2xl p-3 text-slate-800 text-center transition hover:scale-105 border-2 border-emerald-400 shadow-md">
+                            <span class="text-[10px] font-black text-slate-400 block">SLOT A4</span>
+                            <div id="slotIcon-4" class="text-emerald-500 text-2xl my-1">
+                                <i class="fa-solid fa-square-check"></i>
+                            </div>
+                            <span id="slotStatus-4" class="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full block">
+                                KOSONG
+                            </span>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- ================= 4. RIGHT COLUMN (Vibrant Action Shortcuts) ================= -->
+            <div class="lg:col-span-2 flex flex-row lg:flex-col justify-between gap-3 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
+                
+                <!-- Action 1: Connect Bluetooth -->
+                <button onclick="connectBluetooth()" class="vertical-dock-btn min-w-[100px] lg:min-w-0 flex-1 bg-emerald-400 hover:bg-emerald-500 text-white p-3.5 flex flex-col items-center justify-center text-center gap-1.5 shadow-md border-2 border-emerald-300">
+                    <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">
+                        <i class="fa-sharp fa-solid fa-bluetooth"></i>
+                    </div>
+                    <span class="font-playful font-extrabold text-xs">PAIR BT</span>
+                    <span class="text-[9px] text-emerald-100 font-bold uppercase">ESP32</span>
+                </button>
+
+                <!-- Action 2: Emergency Gate Release -->
+                <button onclick="triggerEmergencyMode()" class="vertical-dock-btn min-w-[100px] lg:min-w-0 flex-1 bg-purple-500 hover:bg-purple-600 text-white p-3.5 flex flex-col items-center justify-center text-center gap-1.5 shadow-md border-2 border-purple-400">
+                    <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <span class="font-playful font-extrabold text-xs">DARURAT</span>
+                    <span class="text-[9px] text-purple-200 font-bold uppercase">Gate Buka</span>
+                </button>
+
+                <!-- Action 3: Send Custom Notification -->
+                <button onclick="sendCustomNotificationPrompt()" class="vertical-dock-btn min-w-[100px] lg:min-w-0 flex-1 bg-rose-500 hover:bg-rose-600 text-white p-3.5 flex flex-col items-center justify-center text-center gap-1.5 shadow-md border-2 border-rose-400">
+                    <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </div>
+                    <span class="font-playful font-extrabold text-xs">KIRIM NOTIF</span>
+                    <span class="text-[9px] text-rose-200 font-bold uppercase">Firebase</span>
+                </button>
+
+                <!-- Action 4: Sound Alert Test -->
+                <button onclick="playBeepSound()" class="vertical-dock-btn min-w-[100px] lg:min-w-0 flex-1 bg-amber-400 hover:bg-amber-500 text-amber-950 p-3.5 flex flex-col items-center justify-center text-center gap-1.5 shadow-md border-2 border-amber-300">
+                    <div class="w-10 h-10 rounded-full bg-white/30 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-bell"></i>
+                    </div>
+                    <span class="font-playful font-extrabold text-xs">TES BEEP</span>
+                    <span class="text-[9px] text-amber-800 font-bold uppercase">Buzzer</span>
+                </button>
+
+                <!-- Action 5: Clear / Reset -->
+                <button onclick="clearLogs()" class="vertical-dock-btn min-w-[100px] lg:min-w-0 flex-1 bg-cyan-400 hover:bg-cyan-500 text-slate-900 p-3.5 flex flex-col items-center justify-center text-center gap-1.5 shadow-md border-2 border-cyan-300">
+                    <div class="w-10 h-10 rounded-full bg-white/30 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-broom"></i>
+                    </div>
+                    <span class="font-playful font-extrabold text-xs">BERSIHKAN</span>
+                    <span class="text-[9px] text-slate-700 font-bold uppercase">Log Data</span>
+                </button>
+
+            </div>
+
+        </div>
+
+        <!-- ================= 5. BOTTOM AUDIO/PLAYER STYLE DOCK ================= -->
+        <footer class="player-bar p-3 sm:p-4 px-5 sm:px-7 flex flex-col md:flex-row items-center justify-between gap-4 mt-auto">
+            
+            <!-- Controls (Play / Prev / Next Log Navigation) -->
+            <div class="flex items-center gap-3">
+                <button onclick="navigateLog(-1)" title="Log Sebelumnya" class="w-9 h-9 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-800 flex items-center justify-center text-sm transition">
+                    <i class="fa-solid fa-backward-step"></i>
+                </button>
+
+                <button id="playPauseLogBtn" onclick="toggleAutoLogScroll()" title="Pause/Play Live Stream" class="w-12 h-12 rounded-full bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center text-lg shadow-md transition transform active:scale-95">
+                    <i id="playPauseIcon" class="fa-solid fa-pause"></i>
+                </button>
+
+                <button onclick="navigateLog(1)" title="Log Selanjutnya" class="w-9 h-9 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-800 flex items-center justify-center text-sm transition">
+                    <i class="fa-solid fa-forward-step"></i>
+                </button>
+            </div>
+
+            <!-- Current Log Text Center Display -->
+            <div class="flex-1 w-full md:w-auto text-center md:text-left px-2">
+                <div class="flex items-center justify-center md:justify-start gap-2 mb-1">
+                    <span class="font-playful font-bold text-xs text-amber-900" id="currentLogTitle">Notifikasi Teks Sistem</span>
+                    <span class="text-[10px] text-amber-700 bg-amber-200/80 font-extrabold px-2 py-0.5 rounded-full" id="logCounterBadge">Log 1/1</span>
+                </div>
+
+                <!-- Progress Line Indicator -->
+                <div class="w-full bg-amber-200/80 rounded-full h-2 mb-1 overflow-hidden">
+                    <div id="logProgressBar" class="bg-gradient-to-r from-orange-500 to-amber-400 h-2 rounded-full transition-all duration-300" style="width: 100%;"></div>
+                </div>
+
+                <!-- Log String Content -->
+                <p id="liveLogText" class="text-xs font-semibold text-slate-700 truncate max-w-xl mx-auto md:mx-0">
+                    > Sistem Smart Parking siap. Terhubung ke ESP32...
+                </p>
+            </div>
+
+            <!-- Runtime Counter Badge -->
+            <div class="text-right flex-shrink-0">
+                <span id="runtimeText" class="font-mono text-xs font-bold text-amber-900 bg-amber-200/80 px-3 py-1.5 rounded-full border border-amber-300">
+                    00:00 / 05:00
+                </span>
+            </div>
+
+        </footer>
+
+    </div>
+
+    <!-- Firebase Modal Configuration -->
+    <div id="firebaseModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border-4 border-amber-300">
+            <div class="flex items-center justify-between border-b pb-3">
+                <h3 class="font-playful text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-fire text-amber-500"></i>
+                    Pengaturan Firebase Database
+                </h3>
+                <button onclick="toggleFirebaseModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+            </div>
+
+            <p class="text-xs text-slate-600 font-medium">Masukkan konfigurasi Firebase Realtime Database kamu dari Firebase Console:</p>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Database URL</label>
+                    <input type="text" id="fbDbUrl" placeholder="https://smart-parking-smp-default-rtdb.firebaseio.com" class="w-full px-3 py-2 border rounded-xl text-xs focus:ring-2 focus:ring-amber-400 outline-none">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">API Key</label>
+                    <input type="text" id="fbApiKey" placeholder="AIzaSy..." class="w-full px-3 py-2 border rounded-xl text-xs focus:ring-2 focus:ring-amber-400 outline-none">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="toggleFirebaseModal()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200">Batal</button>
+                <button onclick="saveFirebaseSettings()" class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-amber-500 hover:bg-amber-600">Simpan & Sync</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ================= GLOBAL STATE =================
+        const state = {
+            gates: {
+                gate1: "CLOSE", // CLOSE or OPEN
+                gate2: "CLOSE"
+            },
+            sensors: {
+                ir1: false, // false = clear, true = detected
+                ir2: false
+            },
+            slots: {
+                1: false, // false = kosong, true = terisi
+                2: true,
+                3: false,
+                4: false
+            },
+            logs: [
+                "[00:00] Sistem Smart Parking diinisialisasi.",
+                "[00:05] ESP32 siap menerima perintah Servo & Sensor IR."
+            ],
+            currentLogIndex: 1,
+            autoScrollLogs: true,
+            soundEnabled: true,
+            bluetoothDevice: null,
+            bluetoothGatt: null,
+            firebaseActive: false,
+            secondsElapsed: 0
+        };
+
+        // ================= SYSTEM INITIALIZATION =================
+        window.onload = function() {
+            updateOccupancyGauge();
+            startRuntimeTimer();
+            startLiveClock(); // Start the live digital clock
+            appendLog("Dashboard Siap! Jam realtime diaktifkan.");
+        };
+
+        // ================= REALTIME DIGITAL CLOCK =================
+        function startLiveClock() {
+            const timeEl = document.getElementById('liveTimeText');
+            const dateEl = document.getElementById('liveDateText');
+
+            function updateClock() {
+                const now = new Date();
+                
+                // Format Jam: HH:MM:SS WIB
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                
+                if (timeEl) {
+                    timeEl.innerText = `${hours}:${minutes}:${seconds} WIB`;
+                }
+
+                // Format Tanggal Bahasa Indonesia
+                if (dateEl) {
+                    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+                    
+                    const dayName = days[now.getDay()];
+                    const dayNum = now.getDate();
+                    const monthName = months[now.getMonth()];
+                    
+                    dateEl.innerText = `${dayName}, ${dayNum} ${monthName}`;
+                }
+            }
+
+            updateClock(); // Run immediately on load
+            setInterval(updateClock, 1000); // Update every 1 second
+        }
+
+        // ================= RUNTIME COUNTER =================
+        function startRuntimeTimer() {
+            setInterval(() => {
+                state.secondsElapsed++;
+                const mins = String(Math.floor(state.secondsElapsed / 60)).padStart(2, '0');
+                const secs = String(state.secondsElapsed % 60).padStart(2, '0');
+                document.getElementById('runtimeText').innerText = `${mins}:${secs} / 05:00`;
+            }, 1000);
+        }
+
+        // ================= SERVO GATE CONTROLS =================
+        function toggleGate(gateKey) {
+            const isCurrentlyClosed = state.gates[gateKey] === "CLOSE";
+            const newStatus = isCurrentlyClosed ? "OPEN" : "CLOSE";
+            state.gates[gateKey] = newStatus;
+
+            const btn = document.getElementById(`${gateKey}Btn`);
+            const gateName = gateKey === 'gate1' ? 'Palang Masuk' : 'Palang Keluar';
+
+            if (newStatus === "OPEN") {
+                btn.className = "btn-pill px-4 py-2 bg-rose-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md hover:bg-rose-600";
+                btn.innerHTML = `<span>TUTUP</span><i class="fa-solid fa-lock text-[10px]"></i>`;
+                appendLog(`[SERVO] ${gateName} DIBUKA dari Dashboard.`, 'cmd');
+                playBeepSound(600, 150);
+            } else {
+                btn.className = "btn-pill px-4 py-2 bg-emerald-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md hover:bg-emerald-600";
+                btn.innerHTML = `<span>BUKA</span><i class="fa-solid fa-chevron-right text-[10px]"></i>`;
+                appendLog(`[SERVO] ${gateName} DITUTUP.`, 'cmd');
+                playBeepSound(400, 150);
+            }
+
+            syncToFirebase(`kontrol/${gateKey}`, newStatus);
+            sendBluetoothMsg(`${gateKey.toUpperCase()}:${newStatus}`);
+        }
+
+        function openAllGates() {
+            if (state.gates.gate1 === "CLOSE") toggleGate('gate1');
+            if (state.gates.gate2 === "CLOSE") toggleGate('gate2');
+            appendLog("🔴 [PERINTAH] Semua Palang Parkir DIBUKA!");
+        }
+
+        function triggerEmergencyMode() {
+            openAllGates();
+            playBeepSound(900, 400);
+            alert("⚠️ MODE DARURAT DIAKTIFKAN: Semua palang otomatis terbuka!");
+        }
+
+        // ================= IR SENSOR SIMULATION =================
+        function simulateIRTrigger(sensorKey) {
+            state.sensors[sensorKey] = !state.sensors[sensorKey];
+            const isDetected = state.sensors[sensorKey];
+            const badge = document.getElementById(`${sensorKey}Badge`);
+            const sensorName = sensorKey === 'ir1' ? 'IR Masuk' : 'IR Keluar';
+
+            if (isDetected) {
+                badge.className = "cursor-pointer bg-amber-400 text-amber-950 font-black text-[11px] px-3 py-1.5 rounded-xl pulse-animation shadow-sm";
+                badge.innerText = "Mobil Terdeteksi!";
+                appendLog(`[SENSOR] Mobil terdeteksi pada ${sensorName}!`, 'sensor');
+                playBeepSound(800, 200);
+
+                // Auto-open gate logic simulation
+                const targetGate = sensorKey === 'ir1' ? 'gate1' : 'gate2';
+                if (state.gates[targetGate] === "CLOSE") {
+                    setTimeout(() => toggleGate(targetGate), 500);
+                }
+            } else {
+                badge.className = "cursor-pointer bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-extrabold px-3 py-1.5 rounded-xl";
+                badge.innerText = "Clear";
+                appendLog(`[SENSOR] ${sensorName} kembali bersih (Clear).`);
+            }
+        }
+
+        // ================= PARKING SLOT & GAUGE METER =================
+        function toggleSlotManual(slotNum) {
+            state.slots[slotNum] = !state.slots[slotNum];
+            updateSlotUI(slotNum);
+            updateOccupancyGauge();
+
+            const status = state.slots[slotNum] ? "TERISI" : "KOSONG";
+            appendLog(`[PARKIR] Slot A${slotNum} sekarang ${status}.`);
+            syncToFirebase(`slots/slot_${slotNum}`, state.slots[slotNum]);
+        }
+
+        function updateSlotUI(slotNum) {
+            const isFilled = state.slots[slotNum];
+            const card = document.getElementById(`slotCard-${slotNum}`);
+            const icon = document.getElementById(`slotIcon-${slotNum}`);
+            const status = document.getElementById(`slotStatus-${slotNum}`);
+
+            if (isFilled) {
+                card.className = "cursor-pointer bg-white rounded-2xl p-3 text-slate-800 text-center transition hover:scale-105 border-2 border-rose-400 shadow-md";
+                icon.className = "text-rose-500 text-2xl my-1";
+                icon.innerHTML = '<i class="fa-solid fa-car-side"></i>';
+                status.className = "text-[10px] font-extrabold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full block";
+                status.innerText = "TERISI";
+            } else {
+                card.className = "cursor-pointer bg-white rounded-2xl p-3 text-slate-800 text-center transition hover:scale-105 border-2 border-emerald-400 shadow-md";
+                icon.className = "text-emerald-500 text-2xl my-1";
+                icon.innerHTML = '<i class="fa-solid fa-square-check"></i>';
+                status.className = "text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full block";
+                status.innerText = "KOSONG";
+            }
+        }
+
+        function updateOccupancyGauge() {
+            const occupiedCount = Object.values(state.slots).filter(Boolean).length;
+            const availableCount = 4 - occupiedCount;
+            const percent = Math.round((occupiedCount / 4) * 100);
+
+            // Update top bar pill
+            document.getElementById('topSlotText').innerText = `${availableCount} / 4 Slot Tersedia`;
+
+            // Update gauge UI
+            document.getElementById('gaugePercent').innerText = `${percent}%`;
+            const circle = document.getElementById('gaugeCircle');
+            // Circumference 2*PI*38 = 238.76
+            const offset = 238.76 - (238.76 * percent / 100);
+            circle.style.strokeDashoffset = offset;
+        }
+
+        function resetSystemData() {
+            state.slots = { 1: false, 2: false, 3: false, 4: false };
+            for(let i=1; i<=4; i++) updateSlotUI(i);
+            updateOccupancyGauge();
+            appendLog("🔄 System Slot Parkir berhasil di-reset menjadi KOSONG.");
+        }
+
+        // ================= WEB BLUETOOTH API =================
+        async function connectBluetooth() {
+            if (!navigator.bluetooth) {
+                alert("Browser tidak mendukung Web Bluetooth. Mohon gunakan Google Chrome / Edge!");
+                return;
+            }
+
+            try {
+                appendLog("[BT] Mencari perangkat Bluetooth ESP32...");
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: ['00001101-0000-1000-8000-00805f9b34fb']
+                });
+
+                document.getElementById('topBtText').innerText = "Connecting...";
+                const server = await device.gatt.connect();
+
+                state.bluetoothDevice = device;
+                state.bluetoothGatt = server;
+
+                document.getElementById('topBtText').innerText = device.name || "ESP32 Connected";
+                document.getElementById('topBtBtn').className = "btn-pill bg-emerald-400 border-2 border-emerald-300 p-2.5 px-4 flex items-center gap-2 text-xs font-bold text-white shadow-sm";
+                appendLog(`[BT] Connected ke ${device.name || 'ESP32'}!`, 'success');
+
+            } catch (err) {
+                appendLog(`[BT Error] ${err.message || 'Koneksi dibatalkan.'}`);
+                document.getElementById('topBtText').innerText = "Connect BT";
+            }
+        }
+
+        function sendBluetoothMsg(msg) {
+            if (state.bluetoothGatt && state.bluetoothGatt.connected) {
+                appendLog(`[BT Sent] -> ${msg}`);
+            }
+        }
+
+        // ================= FIREBASE DATABASE INTEGRATION =================
+        function toggleFirebaseModal() {
+            document.getElementById('firebaseModal').classList.toggle('hidden');
+        }
+
+        function saveFirebaseSettings() {
+            const dbUrl = document.getElementById('fbDbUrl').value.trim();
+            const apiKey = document.getElementById('fbApiKey').value.trim();
+
+            if (!dbUrl) {
+                alert("Masukkan Database URL Firebase!");
+                return;
+            }
+
+            try {
+                const config = { apiKey: apiKey || "dummy-key", databaseURL: dbUrl };
+                if (!firebase.apps.length) firebase.initializeApp(config);
+
+                state.firebaseActive = true;
+                document.getElementById('fbTextStatus').innerText = "Firebase Active";
+                document.getElementById('fbIconBadge').className = "w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs";
+                
+                toggleFirebaseModal();
+                appendLog("🔥 Terhubung ke Firebase Database secara Real-time!");
+
+            } catch (e) {
+                alert("Gagal koneksi Firebase: " + e.message);
+            }
+        }
+
+        function syncToFirebase(path, val) {
+            if (state.firebaseActive && firebase.apps.length) {
+                firebase.database().ref(`smart_parking/${path}`).set(val);
+            }
+        }
+
+        function sendCustomNotificationPrompt() {
+            const userText = prompt("Kirim pesan notifikasi ke Website / Firebase:", "Mobil B3088SMP berhasil parkir.");
+            if (userText) {
+                appendLog(`📢 [NOTIF] ${userText}`);
+                syncToFirebase("notifikasiTerakhir", userText);
+            }
+        }
+
+        // ================= LOG STREAM & AUDIO PLAYER SYSTEM =================
+        function appendLog(text) {
+            const time = new Date().toLocaleTimeString('id-ID', { hour12: false });
+            const logEntry = `[${time}] ${text}`;
+            
+            state.logs.push(logEntry);
+            if (state.autoScrollLogs) {
+                state.currentLogIndex = state.logs.length - 1;
+            }
+            renderLogDisplay();
+        }
+
+        function renderLogDisplay() {
+            const total = state.logs.length;
+            const currentIdx = state.currentLogIndex;
+            const text = state.logs[currentIdx] || "> Memuat log...";
+
+            document.getElementById('liveLogText').innerText = text;
+            document.getElementById('logCounterBadge').innerText = `Log ${currentIdx + 1}/${total}`;
+
+            const percent = total > 0 ? ((currentIdx + 1) / total) * 100 : 100;
+            document.getElementById('logProgressBar').style.width = `${percent}%`;
+        }
+
+        function navigateLog(dir) {
+            const newIndex = state.currentLogIndex + dir;
+            if (newIndex >= 0 && newIndex < state.logs.length) {
+                state.currentLogIndex = newIndex;
+                state.autoScrollLogs = false; // pause auto scroll when navigating manually
+                document.getElementById('playPauseIcon').className = "fa-solid fa-play";
+                renderLogDisplay();
+            }
+        }
+
+        function toggleAutoLogScroll() {
+            state.autoScrollLogs = !state.autoScrollLogs;
+            const icon = document.getElementById('playPauseIcon');
+            if (state.autoScrollLogs) {
+                icon.className = "fa-solid fa-pause";
+                state.currentLogIndex = state.logs.length - 1;
+                renderLogDisplay();
+            } else {
+                icon.className = "fa-solid fa-play";
+            }
+        }
+
+        function clearLogs() {
+            state.logs = ["[00:00] Log dibersihkan."];
+            state.currentLogIndex = 0;
+            renderLogDisplay();
+        }
+
+        // ================= WEB AUDIO BUZZER SOUND SYNTHESIZER =================
+        function playBeepSound(freq = 700, duration = 150) {
+            if (!state.soundEnabled) return;
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.start();
+                osc.stop(ctx.currentTime + (duration / 1000));
+            } catch (e) {
+                console.log("Audio play error", e);
+            }
+        }
+
+        function toggleAudioBeep() {
+            state.soundEnabled = !state.soundEnabled;
+            const icon = document.getElementById('audioIcon');
+            if (state.soundEnabled) {
+                icon.className = "fa-solid fa-volume-high text-amber-600";
+                playBeepSound(800, 100);
+            } else {
+                icon.className = "fa-solid fa-volume-xmark text-slate-400";
+            }
+        }
+    </script>
+</body>
+</html>
