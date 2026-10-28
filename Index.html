@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Parking - AI & IoT Integration Edition</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <!-- TensorFlow.js & Teachable Machine Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+    <style>
+        :root {
+            --bg-yellow: #fef08a;
+            --yellow-accent: #facc15;
+            --fence-blue: #0284c7;
+            --fence-blue-dark: #0369a1;
+            --sky-blue: #38bdf8;
+            --timmy-red: #ef4444;
+            --grass-green: #22c55e;
+            --grass-green-light: #dcfce7;
+            --cloud-white: #ffffff;
+            --text-dark: #1e293b;
+            --text-muted: #64748b;
+            --card-shadow: 0 10px 20px rgba(217, 119, 6, 0.15), 0 4px 6px rgba(0,0,0,0.05);
+            --border-radius: 24px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Nunito', sans-serif; }
+        body { background-color: #fef9c3; color: var(--text-dark); min-height: 100vh; padding: 20px 12px; }
+        .container { max-width: 1150px; margin: 0 auto; }
+
+        header {
+            background: var(--cloud-white); border-radius: var(--border-radius);
+            padding: 24px; margin-bottom: 24px; box-shadow: var(--card-shadow);
+            border: 4px solid #fde047; position: relative;
+        }
+
+        .header-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; }
+        .header-brand { display: flex; align-items: center; gap: 20px; }
+        .header-title-box h1 { font-family: 'Fredoka', cursive; font-size: 28px; color: #b45309; }
+        .system-status { display: flex; align-items: center; gap: 10px; background: #f0fdf4; border: 2px solid #86efac; padding: 10px 18px; border-radius: 50px; font-weight: 800; color: #166534; font-size: 14px; }
+        .pulse-dot { width: 12px; height: 12px; background-color: var(--grass-green); border-radius: 50%; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; margin-bottom: 28px; }
+        .stat-card { background: var(--cloud-white); border-radius: var(--border-radius); padding: 20px 24px; box-shadow: var(--card-shadow); border: 3px solid #fef08a; display: flex; align-items: center; justify-content: space-between; }
+        .stat-icon { width: 60px; height: 60px; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 26px; }
+        .stat-card.total .stat-icon { background: #e0f2fe; color: #0284c7; }
+        .stat-card.available .stat-icon { background: var(--grass-green-light); color: #16a34a; }
+        .stat-card.occupied .stat-icon { background: #ffe4e6; color: var(--timmy-red); }
+        .stat-value { font-family: 'Fredoka', cursive; font-size: 38px; }
+
+        .main-grid { display: grid; grid-template-columns: 1.8fr 1.2fr; gap: 24px; margin-bottom: 28px; }
+        @media (max-width: 950px) { .main-grid { grid-template-columns: 1fr; } }
+
+        .section-card { background: var(--cloud-white); border-radius: var(--border-radius); padding: 24px; box-shadow: var(--card-shadow); border: 3px solid #fef08a; margin-bottom: 24px; }
+        .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px dashed #fde047; padding-bottom: 12px; }
+        .section-title { font-family: 'Fredoka', cursive; font-size: 22px; color: #b45309; display: flex; align-items: center; gap: 10px; }
+
+        .slots-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+        .parking-slot { background: #fdf2f8; border: 3px dashed #cbd5e1; border-radius: 20px; padding: 16px; min-height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; }
+        .parking-slot.available { background: #f0fdf4; border: 3px solid #4ade80; }
+        .parking-slot.occupied { background: #fff1f2; border: 3px solid #f43f5e; }
+        .slot-id-badge { font-family: 'Fredoka', cursive; font-size: 18px; padding: 4px 14px; border-radius: 12px; background: #fff; }
+        .car-svg { width: 85px; height: 55px; }
+
+        .gate-card { background: #fefce8; border: 3px solid #fde047; border-radius: 20px; padding: 18px; margin-bottom: 12px; cursor: pointer; }
+        .gate-card.open { background: #f0fdf4; border-color: #86efac; }
+        .gate-card.closed { background: #fef2f2; border-color: #fca5a5; }
+        .gate-header { display: flex; justify-content: space-between; margin-bottom: 12px; }
+        .gate-status-pill { font-size: 12px; font-weight: 800; padding: 4px 12px; border-radius: 20px; }
+        .gate-status-pill.open { background: #22c55e; color: #fff; }
+        .gate-status-pill.closed { background: #ef4444; color: #fff; }
+
+        .barricade-wrapper { height: 48px; background: #e2e8f0; border-radius: 12px; display: flex; align-items: center; padding: 0 12px; position: relative; }
+        .gate-arm { height: 12px; width: 80%; background: repeating-linear-gradient(45deg, #ef4444, #ef4444 12px, #fff 12px, #fff 24px); transform-origin: left center; transition: transform 0.5s ease; }
+        .gate-card.open .gate-arm { transform: rotate(-65deg); }
+
+        .btn-group { display: flex; gap: 10px; margin-bottom: 12px; }
+        .btn-action { flex: 1; padding: 10px; border-radius: 12px; border: none; font-family: 'Fredoka', cursive; font-size: 14px; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn-blue { background: #0284c7; }
+        .btn-gray { background: #64748b; }
+        .btn-orange { background: #f59e0b; }
+
+        .webcam-box { width: 100%; height: 180px; background: #0f172a; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-top: 10px; overflow: hidden; }
+        #webcamContainer canvas { width: 100% !important; height: 100% !important; object-fit: cover; }
+        .log-list-container { max-height: 220px; overflow-y: auto; }
+        .log-item { display: flex; justify-content: space-between; padding: 8px 12px; border-radius: 10px; background: #f8fafc; margin-bottom: 6px; font-size: 13px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <div class="header-top">
+                <div class="header-brand">
+                    <div class="header-title-box">
+                        <h1>Smart Parking AI System</h1>
+                        <p>Monitoring Real-Time & Kontrol Otomatis Teachable Machine</p>
+                    </div>
+                </div>
+                <div class="system-status">
+                    <div class="pulse-dot"></div>
+                    <span id="dbStatus">Firebase Connected</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- STATISTIK -->
+        <div class="stats-grid">
+            <div class="stat-card total">
+                <div><h3>Total Slot</h3><div class="stat-value" id="totalSlots">2</div></div>
+                <div class="stat-icon"><i class="fa-solid fa-square-parking"></i></div>
+            </div>
+            <div class="stat-card available">
+                <div><h3>Slot Tersedia</h3><div class="stat-value" id="availableSlots">2</div></div>
+                <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+            </div>
+            <div class="stat-card occupied">
+                <div><h3>Slot Terisi</h3><div class="stat-value" id="occupiedSlots">0</div></div>
+                <div class="stat-icon"><i class="fa-solid fa-car-side"></i></div>
+            </div>
+        </div>
+
+        <!-- FIREBASE REALTIME SETUP -->
+        <div class="section-card">
+            <div class="section-title" style="font-size: 16px;"><i class="fa-solid fa-fire"></i> Firebase Realtime Database Sync</div>
+            <div style="display: flex; gap: 10px; margin-top: 8px;">
+                <input type="text" id="fbUrlInput" value="https://parkir-pintar-8b8ed-default-rtdb.asia-southeast1.firebasedatabase.app/" style="flex:1; padding:8px; border-radius:8px; border:1px solid #cbd5e1;">
+                <button class="btn-action btn-orange" onclick="reconnectFirebase()">Connect</button>
+            </div>
+        </div>
+
+        <!-- LAYOUT UTAMA -->
+        <div class="main-grid">
+            <!-- Monitoring Slot Parkir (ESP32 IR Sensors) -->
+            <div class="section-card">
+                <div class="section-header">
+                    <div class="section-title"><i class="fa-solid fa-border-all"></i> Slot Parkir IR Sensor (ESP32)</div>
+                </div>
+                <div class="slots-grid" id="slotsContainer"></div>
+            </div>
+
+            <!-- Kontrol Gerbang + AI Camera -->
+            <div>
+                <!-- Kontrol Gate -->
+                <div class="section-card">
+                    <div class="section-header">
+                        <div class="section-title"><i class="fa-solid fa-torii-gate"></i> Gerbang Parkir</div>
+                    </div>
+
+                    <!-- Gate IN (micro:bit) -->
+                    <div class="gate-card closed" id="gateInCard" onclick="toggleGateIn()">
+                        <div class="gate-header">
+                            <span><b>Gate IN</b> (micro:bit)</span>
+                            <span class="gate-status-pill closed" id="gateInStatus">Tertutup</span>
+                        </div>
+                        <div class="barricade-wrapper"><div class="gate-arm"></div></div>
+                    </div>
+
+                    <!-- Gate OUT (ESP32) -->
+                    <div class="gate-card closed" id="gateOutCard" onclick="toggleGateOut()">
+                        <div class="gate-header">
+                            <span><b>Gate OUT</b> (ESP32)</span>
+                            <span class="gate-status-pill closed" id="gateOutStatus">Tertutup</span>
+                        </div>
+                        <div class="barricade-wrapper"><div class="gate-arm"></div></div>
+                    </div>
+                </div>
+
+                <!-- Kamera Teachable Machine AI -->
+                <div class="section-card">
+                    <div class="section-header">
+                        <div class="section-title" style="font-size: 18px;"><i class="fa-solid fa-camera"></i> AI Car Detection (Gate IN)</div>
+                    </div>
+
+                    <div id="aiStatusBadge" style="background: #e2e8f0; text-align: center; padding: 6px; border-radius: 8px; font-size: 12px; margin-bottom: 10px;">Model AI Belum Aktif</div>
+
+                    <div class="btn-group">
+                        <button class="btn-action btn-blue" onclick="startCamera()"><i class="fa-solid fa-video"></i> Mulai AI</button>
+                        <button class="btn-action btn-gray" onclick="stopCamera()"><i class="fa-solid fa-video-slash"></i> Stop</button>
+                    </div>
+
+                    <div style="margin-bottom: 8px;">
+                        <label style="font-size:11px; font-weight:bold;">URL Teachable Machine Model:</label>
+                        <input type="text" id="tmModelUrl" value="https://teachablemachine.withgoogle.com/models/utu002404/" style="width:100%; padding:6px; border-radius:6px; border:1px solid #cbd5e1; font-size:12px;">
+                    </div>
+
+                    <div style="margin-bottom: 8px;">
+                        <label style="font-size:11px; font-weight:bold;">Target Class Label (Kendaraan):</label>
+                        <input type="text" id="tmTargetClass" value="mobil" style="width:100%; padding:6px; border-radius:6px; border:1px solid #cbd5e1; font-size:12px;">
+                    </div>
+
+                    <div class="webcam-box" id="webcamContainer">
+                        <span style="color: #94a3b8; font-size: 12px;">Kamera Nonaktif</span>
+                    </div>
+                </div>
+
+                <!-- Koneksi Microbit Web Bluetooth -->
+                <div class="section-card">
+                    <div class="section-title" style="font-size: 16px;"><i class="fa-solid fa-microchip"></i> micro:bit Web Bluetooth</div>
+                    <button class="btn-action btn-blue" onclick="connectMicrobit()" style="margin-top:8px;">
+                        <i class="fa-brands fa-bluetooth-b"></i> Hubungkan micro:bit
+                    </button>
+                    <div id="microbitConnText" style="font-size: 12px; font-weight: 700; color: #ef4444; margin-top: 6px;">Status: Belum Tersambung</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LOG AKTIVITAS -->
+        <div class="section-card">
+            <div class="section-header">
+                <div class="section-title"><i class="fa-solid fa-clock-rotate-left"></i> Activity Log</div>
+            </div>
+            <div class="log-list-container" id="logList"></div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            databaseURL: "https://parkir-pintar-8b8ed-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        let database = firebase.database();
+
+        let parkingData = {
+            slotA: false,
+            slotB: false,
+            gateIn: "tertutup",
+            gateOut: "tertutup"
+        };
+
+        let tmModel, webcam, maxPredictions;
+        let isCameraRunning = false;
+        let microbitDevice, bluetoothCharacteristic;
+
+        const carSvg = `<svg class="car-svg" viewBox="0 0 120 70">
+            <path d="M 20 40 Q 25 20 45 15 L 75 15 Q 95 20 100 40 Z" fill="#ef4444"/>
+            <rect x="10" y="35" width="100" height="20" rx="8" fill="#dc2626"/>
+            <circle cx="30" cy="55" r="10" fill="#1e293b"/>
+            <circle cx="90" cy="55" r="10" fill="#1e293b"/>
+        </svg>`;
+
+        window.onload = function() {
+            initFirebaseListeners();
+            renderSlots();
+        };
+
+        function initFirebaseListeners() {
+            database.ref('parking').on('value', (snapshot) => {
+                const val = snapshot.val();
+                if (val) {
+                    if (val.slotA) parkingData.slotA = val.slotA.occupied;
+                    if (val.slotB) parkingData.slotB = val.slotB.occupied;
+                    if (val.gateIn) setGateInUI(val.gateIn.status === 'terbuka' || val.gateIn.status === 'OPEN');
+                    if (val.gateOut) setGateOutUI(val.gateOut.status === 'terbuka' || val.gateOut.status === 'OPEN');
+                    
+                    renderSlots();
+                    updateStats();
+                }
+            });
+        }
+
+        function renderSlots() {
+            const container = document.getElementById('slotsContainer');
+            container.innerHTML = `
+                <div class="parking-slot ${parkingData.slotA ? 'occupied' : 'available'}">
+                    <div class="slot-id-badge">Slot A</div>
+                    <div>${parkingData.slotA ? carSvg : '<i class="fa-solid fa-circle-plus" style="font-size:32px; color:#4ade80;"></i>'}</div>
+                    <div style="font-weight:bold; font-size:12px;">${parkingData.slotA ? 'TERISI' : 'KOSONG'}</div>
+                </div>
+                <div class="parking-slot ${parkingData.slotB ? 'occupied' : 'available'}">
+                    <div class="slot-id-badge">Slot B</div>
+                    <div>${parkingData.slotB ? carSvg : '<i class="fa-solid fa-circle-plus" style="font-size:32px; color:#4ade80;"></i>'}</div>
+                    <div style="font-weight:bold; font-size:12px;">${parkingData.slotB ? 'TERISI' : 'KOSONG'}</div>
+                </div>
+            `;
+        }
+
+        function updateStats() {
+            const occupiedCount = (parkingData.slotA ? 1 : 0) + (parkingData.slotB ? 1 : 0);
+            document.getElementById('totalSlots').innerText = 2;
+            document.getElementById('occupiedSlots').innerText = occupiedCount;
+            document.getElementById('availableSlots').innerText = 2 - occupiedCount;
+        }
+
+        function setGateInUI(isOpen) {
+            const card = document.getElementById('gateInCard');
+            const pill = document.getElementById('gateInStatus');
+            card.className = `gate-card ${isOpen ? 'open' : 'closed'}`;
+            pill.className = `gate-status-pill ${isOpen ? 'open' : 'closed'}`;
+            pill.innerText = isOpen ? 'Terbuka' : 'Tertutup';
+        }
+
+        function setGateOutUI(isOpen) {
+            const card = document.getElementById('gateOutCard');
+            const pill = document.getElementById('gateOutStatus');
+            card.className = `gate-card ${isOpen ? 'open' : 'closed'}`;
+            pill.className = `gate-status-pill ${isOpen ? 'open' : 'closed'}`;
+            pill.innerText = isOpen ? 'Terbuka' : 'Tertutup';
+        }
+
+        async function toggleGateIn() {
+            const isOpen = document.getElementById('gateInStatus').innerText === 'Terbuka';
+            const nextState = !isOpen;
+            setGateInUI(nextState);
+            
+            // Sync to Firebase
+            database.ref('parking/gateIn').set({
+                status: nextState ? 'terbuka' : 'tertutup',
+                updated: Date.now()
+            });
+
+            sendToMicrobit(nextState ? "OPEN" : "CLOSE");
+            addLog(`Gate IN diubah ke: ${nextState ? 'TERBUKA' : 'TERTUTUP'}`);
+        }
+
+        function toggleGateOut() {
+            const isOpen = document.getElementById('gateOutStatus').innerText === 'Terbuka';
+            const nextState = !isOpen;
+            setGateOutUI(nextState);
+
+            database.ref('parking/gateOut').set({
+                status: nextState ? 'terbuka' : 'tertutup',
+                updated: Date.now()
+            });
+            addLog(`Gate OUT diubah ke: ${nextState ? 'TERBUKA' : 'TERTUTUP'}`);
+        }
+
+        // CONNECT MICROBIT VIA BLUETOOTH UART
+        async function connectMicrobit() {
+            try {
+                microbitDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ namePrefix: 'BBC micro:bit' }],
+                    optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
+                });
+                const server = await microbitDevice.gatt.connect();
+                const service = await server.getPrimaryService('6e400001-b5a3-f393-e0a9-e50e24dcca9e');
+                bluetoothCharacteristic = await service.getCharacteristic('6e400003-b5a3-f393-e0a9-e50e24dcca9e');
+
+                document.getElementById('microbitConnText').innerText = "Status: Connected to micro:bit";
+                document.getElementById('microbitConnText').style.color = "#22c55e";
+                addLog("micro:bit tersambung via Bluetooth.");
+            } catch (err) {
+                console.log(err);
+                document.getElementById('microbitConnText').innerText = "Status: Simulasi Mode (Web)";
+                document.getElementById('microbitConnText').style.color = "#f59e0b";
+            }
+        }
+
+        function sendToMicrobit(msg) {
+            if (bluetoothCharacteristic) {
+                let encoder = new TextEncoder();
+                bluetoothCharacteristic.writeValue(encoder.encode(msg + "\n"));
+            }
+        }
+
+        // TEACHABLE MACHINE AI CONTROL
+        async function startCamera() {
+            const url = document.getElementById('tmModelUrl').value.trim();
+            const badge = document.getElementById('aiStatusBadge');
+
+            try {
+                badge.innerText = "Memuat model AI...";
+                const modelURL = url.endsWith('/') ? url + "model.json" : url + "/model.json";
+                const metadataURL = url.endsWith('/') ? url + "metadata.json" : url + "/metadata.json";
+
+                tmModel = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = tmModel.getTotalClasses();
+
+                webcam = new tmImage.Webcam(200, 180, true);
+                await webcam.setup();
+                await webcam.play();
+                isCameraRunning = true;
+
+                const box = document.getElementById('webcamContainer');
+                box.innerHTML = '';
+                box.appendChild(webcam.canvas);
+
+                badge.innerText = "AI Aktif & Memindai";
+                badge.style.background = "#d1fae5";
+                badge.style.color = "#047857";
+
+                addLog("Kamera AI Teachable Machine aktif.");
+                window.requestAnimationFrame(cameraLoop);
+            } catch (err) {
+                alert("Gagal memuat model Teachable Machine!");
+            }
+        }
+
+        async function cameraLoop() {
+            if (!isCameraRunning) return;
+            webcam.update();
+            await scanCar();
+            window.requestAnimationFrame(cameraLoop);
+        }
+
+        let isCarDetected = false;
+        async function scanCar() {
+            if (!tmModel) return;
+            const prediction = await tmModel.predict(webcam.canvas);
+            const targetClass = document.getElementById('tmTargetClass').value.trim().toLowerCase();
+
+            let detected = false;
+            for (let i = 0; i < maxPredictions; i++) {
+                if (prediction[i].className.toLowerCase() === targetClass && prediction[i].probability > 0.85) {
+                    detected = true;
+                }
+            }
+
+            // OTOMATISASI SERVO GERBANG MASUK LEWAT AI
+            if (detected && !isCarDetected) {
+                isCarDetected = true;
+                setGateInUI(true);
+                database.ref('parking/gateIn').set({ status: 'terbuka', updated: Date.now() });
+                sendToMicrobit("OPEN");
+                addLog("[AI DETECT] Kendaraan terdeteksi! Gate IN Buka Otomatis.");
+            } else if (!detected && isCarDetected) {
+                isCarDetected = false;
+                setGateInUI(false);
+                database.ref('parking/gateIn').set({ status: 'tertutup', updated: Date.now() });
+                sendToMicrobit("CLOSE");
+                addLog("[AI CLEAR] Kendaraan lewat. Gate IN Tutup Otomatis.");
+            }
+        }
+
+        function stopCamera() {
+            if (webcam) webcam.stop();
+            isCameraRunning = false;
+            document.getElementById('webcamContainer').innerHTML = '<span style="color: #94a3b8; font-size: 12px;">Kamera Nonaktif</span>';
+            document.getElementById('aiStatusBadge').innerText = "Model AI Belum Aktif";
+        }
+
+        function reconnectFirebase() {
+            const newUrl = document.getElementById('fbUrlInput').value.trim();
+            if (newUrl) {
+                firebase.initializeApp({ databaseURL: newUrl }, "secondary");
+                database = firebase.database();
+                initFirebaseListeners();
+                addLog("Firebase reconnected.");
+            }
+        }
+
+        function addLog(msg) {
+            const list = document.getElementById('logList');
+            const now = new Date().toLocaleTimeString('id-ID');
+            const item = document.createElement('div');
+            item.className = 'log-item';
+            item.innerHTML = `<span><b>${now}</b> - ${msg}</span>`;
+            list.insertBefore(item, list.firstChild);
+        }
+    </script>
+</body>
+</html>
